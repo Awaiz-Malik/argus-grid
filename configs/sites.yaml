@@ -1,0 +1,27 @@
+# Site registry the Orchestrator reads to discover Vision Agents.
+# `url` is each Vision Agent's base URL — its A2A Agent Card lives at
+# `{url}/.well-known/agent-card.json` and its MCP endpoint at `{url}/mcp`.
+sites:
+  - id: site-a
+    name: Downtown Construction Site
+    url: http://localhost:9001
+    source:
+      kind: video
+      path: data/videos/site-a.mp4
+      loop: true
+
+  - id: site-b
+    name: North Yard Construction Site
+    url: http://localhost:9002
+    source:
+      kind: video
+      path: data/videos/site-b.mp4
+      loop: true
+
+  - id: site-c
+    name: East Depot Construction Site
+    url: http://localhost:9003
+    source:
+      kind: webcam
+      device_index: 0
+      fallback_path: data/videos/site-c.mp4

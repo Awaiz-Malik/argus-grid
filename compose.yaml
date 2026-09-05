@@ -1,0 +1,101 @@
+x-healthcheck: &healthcheck
+  interval: 15s
+  timeout: 5s
+  retries: 5
+  start_period: 10s
+
+x-common: &common
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+  env_file: .env
+  environment:
+    ARGUS_SITES_CONFIG: configs/sites.compose.yaml
+  volumes:
+    - ./data:/app/data
+    - ./configs:/app/configs:ro
+  restart: unless-stopped
+
+services:
+  vision-agent-site-a:
+    <<: *common
+    command: uvicorn services.vision_agent.app:app --host 0.0.0.0 --port 9001
+    environment:
+      ARGUS_SITES_CONFIG: configs/sites.compose.yaml
+      ARGUS_SITE_ID: site-a
+    ports:
+      - "9001:9001"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:9001/health')"]
+
+  vision-agent-site-b:
+    <<: *common
+    command: uvicorn services.vision_agent.app:app --host 0.0.0.0 --port 9002
+    environment:
+      ARGUS_SITES_CONFIG: configs/sites.compose.yaml
+      ARGUS_SITE_ID: site-b
+    ports:
+      - "9002:9002"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:9002/health')"]
+
+  vision-agent-site-c:
+    <<: *common
+    command: uvicorn services.vision_agent.app:app --host 0.0.0.0 --port 9003
+    environment:
+      ARGUS_SITES_CONFIG: configs/sites.compose.yaml
+      ARGUS_SITE_ID: site-c
+    devices:
+      - /dev/video0:/dev/video0
+    ports:
+      - "9003:9003"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:9003/health')"]
+
+  triage-agent:
+    <<: *common
+    command: uvicorn services.triage_agent.app:app --host 0.0.0.0 --port 8090
+    environment:
+      ARGUS_SITES_CONFIG: configs/sites.compose.yaml
+      ARGUS_SELF_URL: http://triage-agent:8090
+    ports:
+      - "8090:8090"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8090/health')"]
+
+  reporting-agent:
+    <<: *common
+    command: uvicorn services.reporting_agent.app:app --host 0.0.0.0 --port 8091
+    environment:
+      ARGUS_SITES_CONFIG: configs/sites.compose.yaml
+      ARGUS_SELF_URL: http://reporting-agent:8091
+    ports:
+      - "8091:8091"
+    healthcheck:
+      <<: *healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8091/health')"]
+
+  orchestrator:
+    <<: *common
+    command: uvicorn services.orchestrator.app:app --host 0.0.0.0 --port 8080
+    environment:
+      ARGUS_SITES_CONFIG: configs/sites.compose.yaml
+      TRIAGE_AGENT_URL: http://triage-agent:8090
+      REPORTING_AGENT_URL: http://reporting-agent:8091
+    ports:
+      - "8080:8080"
+    depends_on:
+      vision-agent-site-a:
+        condition: service_healthy
+      vision-agent-site-b:
+        condition: service_healthy
+      vision-agent-site-c:
+        condition: service_healthy
+      triage-agent:
+        condition: service_healthy
+      reporting-agent:
+        condition: service_healthy
