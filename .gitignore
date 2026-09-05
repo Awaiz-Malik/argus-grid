@@ -2,10 +2,13 @@
 __pycache__/
 *.pyc
 .env
-data/
 *.db
 *.pt
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
 .DS_Store
+
+# runtime data (keep directory structure, ignore generated content)
+data/*/*
+!data/*/.gitkeep

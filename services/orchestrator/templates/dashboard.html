@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Argus Grid</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; margin: 2rem auto; max-width: 900px; background: #0b0d10; color: #e6e8eb; }
+    h1 { font-size: 1.4rem; }
+    .sub { color: #9aa4af; margin-bottom: 2rem; }
+    .incident { border: 1px solid #2a2f36; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; background: #14171b; }
+    .incident-head { display: flex; justify-content: space-between; align-items: center; }
+    .badge { padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+    .badge-low { background: #1f3a2a; color: #7ee0a0; }
+    .badge-medium { background: #3a3520; color: #e0c97e; }
+    .badge-high { background: #3a2820; color: #e0967e; }
+    .badge-critical { background: #3a2020; color: #ff8a8a; }
+    .meta { color: #9aa4af; font-size: 0.85rem; margin: 0.4rem 0; }
+    .report { white-space: pre-wrap; font-size: 0.9rem; margin-top: 0.75rem; border-top: 1px solid #2a2f36; padding-top: 0.75rem; }
+    .empty { color: #9aa4af; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h1>Argus Grid</h1>
+  <p class="sub">Cross-site incidents the Orchestrator has escalated to Triage + Reporting.</p>
+
+  {% if not incidents %}
+    <p class="empty">No incidents yet — nothing has crossed the cross-site pattern threshold.</p>
+  {% endif %}
+
+  {% for incident in incidents %}
+    <div class="incident">
+      <div class="incident-head">
+        <strong>{{ incident.pattern_summary }}</strong>
+        {% if incident.severity %}
+          <span class="badge badge-{{ incident.severity.level }}">{{ incident.severity.level }}</span>
+        {% endif %}
+      </div>
+      <div class="meta">Sites: {{ incident.site_ids | join(", ") }} · {{ incident.created_at }}</div>
+      {% if incident.severity %}
+        <div class="meta">{{ incident.severity.rationale }}</div>
+      {% endif %}
+      {% if incident.report %}
+        <div class="report">{{ incident.report.body_markdown }}</div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Same sites as sites.yaml, but with URLs pointing at podman-compose service
+# DNS names instead of localhost - selected via ARGUS_SITES_CONFIG in compose.yaml.
+sites:
+  - id: site-a
+    name: Downtown Construction Site
+    url: http://vision-agent-site-a:9001
+    source:
+      kind: video
+      path: data/videos/site-a.mp4
+      loop: true
+
+  - id: site-b
+    name: North Yard Construction Site
+    url: http://vision-agent-site-b:9002
+    source:
+      kind: video
+      path: data/videos/site-b.mp4
+      loop: true
+
+  - id: site-c
+    name: East Depot Construction Site
+    url: http://vision-agent-site-c:9003
+    source:
+      kind: webcam
+      device_index: 0
+      fallback_path: data/videos/site-c.mp4

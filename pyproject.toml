@@ -1,0 +1,41 @@
+[project]
+name = "argus-grid"
+version = "0.1.0"
+description = "Distributed visual inspection agent network: per-site Vision Agents (MCP) coordinated by a cross-site Orchestrator (LangGraph) that delegates to Triage and Reporting agents (A2A), traced end-to-end in LangSmith."
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.141,<1",
+  "uvicorn[standard]>=0.52,<1",
+  "pydantic>=2.13,<3",
+  "pydantic-settings>=2.6,<3",
+  "httpx>=0.27,<1",
+  "pyyaml>=6.0,<7",
+  "jinja2>=3.1,<4",
+  "python-dotenv>=1.0,<2",
+  "mcp>=2.1,<3",
+  "a2a-sdk>=1.1,<2",
+  "langgraph>=1.2,<2",
+  "langchain-openai>=1.6,<2",
+  "langsmith>=0.12,<1",
+  "ultralytics>=8.4,<9",
+  "opencv-python-headless>=4.10,<6",
+  "numpy>=1.26,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<9",
+  "pytest-asyncio>=0.24,<1",
+  "ruff>=0.7,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["services*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
