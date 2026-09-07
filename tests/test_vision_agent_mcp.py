@@ -32,7 +32,11 @@ def vision_agent_server():
     time.sleep(4)
     yield
     proc.terminate()
-    proc.wait(timeout=10)
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=10)
 
 
 async def test_list_tools_and_call_get_event_history(vision_agent_server):

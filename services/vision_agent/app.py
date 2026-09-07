@@ -22,6 +22,7 @@ import numpy as np
 from a2a.server.routes import add_a2a_routes_to_fastapi, create_agent_card_routes
 from fastapi import FastAPI
 from mcp.server.mcpserver import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 
 from services.common.a2a import build_agent_card
 from services.common.schemas import DetectionEvent
@@ -158,4 +159,16 @@ def health() -> dict:
     return {"site_id": SITE_ID, "status": "ok"}
 
 
-app.mount("/", mcp.streamable_http_app(stateless_http=True, json_response=True))
+# The MCP SDK's default DNS-rebinding protection only allows localhost
+# Host/Origin headers - correct for a server exposed to untrusted browsers,
+# but it silently rejects every request when the Orchestrator reaches this
+# agent by its podman-compose service name (e.g. http://vision-agent-site-a:9001).
+# All traffic here stays on our own internal compose network, so it's disabled.
+app.mount(
+    "/",
+    mcp.streamable_http_app(
+        stateless_http=True,
+        json_response=True,
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    ),
+)

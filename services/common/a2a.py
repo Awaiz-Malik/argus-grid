@@ -81,7 +81,9 @@ async def call_agent(base_url: str, payload: dict[str, Any], *, timeout: float =
         resolver = A2ACardResolver(httpx_client=httpx_client, base_url=base_url)
         agent_card = await resolver.get_agent_card()
 
-        client = await create_client(agent=agent_card, client_config=ClientConfig(streaming=False))
+        client = await create_client(
+            agent=agent_card, client_config=ClientConfig(streaming=False, httpx_client=httpx_client)
+        )
         try:
             message = new_data_message(payload, role=Role.ROLE_USER)
             request = SendMessageRequest(message=message)

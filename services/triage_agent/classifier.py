@@ -13,6 +13,7 @@ async def classify_severity(llm: ChatOpenAI, payload: dict[str, Any]) -> Severit
     structured_llm = llm.with_structured_output(SeverityResult)
 
     events = payload.get("events", [])
+    total_event_count = payload.get("total_event_count", len(events))
     event_lines = [
         f"- site={e.get('site_id')} violation={e.get('violation_type')} confidence={e.get('confidence', 0):.2f}"
         for e in events
@@ -23,7 +24,8 @@ async def classify_severity(llm: ChatOpenAI, payload: dict[str, Any]) -> Severit
         "and delegated it to you for severity classification.\n\n"
         f"Pattern summary: {payload.get('pattern_summary')}\n"
         f"Sites involved: {', '.join(payload.get('site_ids', []))}\n"
-        f"Events ({len(events)}):\n" + "\n".join(event_lines) + "\n\n"
+        f"Total matching events: {total_event_count} (showing a sample of {len(events)}):\n"
+        + "\n".join(event_lines) + "\n\n"
         "Classify the severity (low/medium/high/critical), explain why in one "
         "or two sentences, and recommend one concrete next action for a site "
         "safety manager."

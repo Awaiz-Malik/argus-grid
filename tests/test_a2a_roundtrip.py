@@ -19,7 +19,16 @@ PORT = 8099
 
 @pytest.fixture(scope="module")
 def triage_server():
-    env = {**os.environ, "OPENAI_API_KEY": "sk-placeholder-for-plumbing-test"}
+    env = {
+        **os.environ,
+        "OPENAI_API_KEY": "sk-placeholder-for-plumbing-test",
+        # Without this, the agent's own Agent Card advertises the *default*
+        # triage_agent_port (8090) instead of the port it's actually bound to
+        # here - the A2A client follows the card's declared URL for the real
+        # message send, so a mismatch silently redirects requests elsewhere
+        # (e.g. a real triage-agent instance already running on 8090).
+        "ARGUS_SELF_URL": f"http://localhost:{PORT}",
+    }
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "services.triage_agent.app:app", "--port", str(PORT)],
         env=env,
@@ -29,7 +38,11 @@ def triage_server():
     time.sleep(4)
     yield
     proc.terminate()
-    proc.wait(timeout=10)
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=10)
 
 
 async def test_task_lifecycle_reaches_failed_without_real_key(triage_server):

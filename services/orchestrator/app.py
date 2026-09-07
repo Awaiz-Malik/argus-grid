@@ -85,4 +85,4 @@ def health() -> dict:
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request) -> HTMLResponse:
     incidents = incident_store.recent(limit=20)
-    return templates.TemplateResponse("dashboard.html", {"request": request, "incidents": incidents})
+    return templates.TemplateResponse(request, "dashboard.html", {"incidents": incidents})

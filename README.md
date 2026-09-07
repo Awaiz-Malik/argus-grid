@@ -128,7 +128,7 @@ podman-compose up --build
 Site URLs differ between local runs (`localhost:PORT`) and compose (service
 DNS names like `http://vision-agent-site-a:9001`), so there are two site
 registries: `configs/sites.yaml` (local) and `configs/sites.compose.yaml`
-(compose - selected via `ARGUS_SITES_CONFIG`, already wired in `compose.yaml`).
+(compose - selected via `SITES_CONFIG_PATH`, already wired in `compose.yaml`).
 
 **Requires**, on rootless podman: `fuse-overlayfs` (storage driver) and
 `podman-compose` — on Arch: `sudo pacman -S --needed fuse-overlayfs podman-compose`.

@@ -31,6 +31,7 @@ from services.orchestrator.store import IncidentStore
 logger = logging.getLogger(__name__)
 
 LOOKBACK = timedelta(hours=24)
+MAX_DELEGATED_EVENTS = 30
 
 
 class PatternAnalysis(BaseModel):
@@ -103,25 +104,32 @@ def build_graph(settings: Settings, incident_store: IncidentStore, triage_url: s
         analysis = state.get("analysis")
         return "delegate_triage" if analysis and analysis.incident_worthy else "end"
 
+    def _delegated_events_payload(state: OrchestratorState, site_ids: list[str]) -> dict:
+        events = [e for e in state.get("events", []) if e.site_id in site_ids]
+        # A flagged pattern can involve hundreds of events; delegated agents only
+        # need a representative sample to reason over, not every single one -
+        # sending them all bloats the prompt and can make the LLM call slow
+        # enough to trip the A2A client timeout.
+        sample = events[:MAX_DELEGATED_EVENTS]
+        return {"total_event_count": len(events), "events": [e.model_dump(mode="json") for e in sample]}
+
     async def delegate_triage_node(state: OrchestratorState) -> OrchestratorState:
         analysis = state["analysis"]
-        events = [e for e in state.get("events", []) if e.site_id in analysis.site_ids]
         payload = {
             "pattern_summary": analysis.summary,
             "site_ids": analysis.site_ids,
-            "events": [e.model_dump(mode="json") for e in events],
+            **_delegated_events_payload(state, analysis.site_ids),
         }
         result = await call_agent(triage_url, payload)
         return {"severity": SeverityResult.model_validate(result)}
 
     async def delegate_reporting_node(state: OrchestratorState) -> OrchestratorState:
         analysis = state["analysis"]
-        events = [e for e in state.get("events", []) if e.site_id in analysis.site_ids]
         payload = {
             "pattern_summary": analysis.summary,
             "site_ids": analysis.site_ids,
             "severity": state["severity"].model_dump(mode="json"),
-            "events": [e.model_dump(mode="json") for e in events],
+            **_delegated_events_payload(state, analysis.site_ids),
         }
         result = await call_agent(reporting_url, payload)
         return {"report": IncidentReport.model_validate(result)}
