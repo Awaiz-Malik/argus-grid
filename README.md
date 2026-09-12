@@ -103,6 +103,13 @@ Non-secret configuration (model name, ports, poll interval, paths) lives in
 ## Running locally
 
 ```bash
+scripts/run_local.sh start   # launches all 6 services in the background, logs under data/logs/
+scripts/run_local.sh stop
+```
+
+Or run each service by hand:
+
+```bash
 ARGUS_SITE_ID=site-a .venv/bin/uvicorn services.vision_agent.app:app --port 9001
 ARGUS_SITE_ID=site-b .venv/bin/uvicorn services.vision_agent.app:app --port 9002
 ARGUS_SITE_ID=site-c .venv/bin/uvicorn services.vision_agent.app:app --port 9003
@@ -111,13 +118,17 @@ ARGUS_SITE_ID=site-c .venv/bin/uvicorn services.vision_agent.app:app --port 9003
 .venv/bin/uvicorn services.orchestrator.app:app --port 8080
 ```
 
-Open **`http://localhost:8080`** for the dashboard. The Orchestrator runs a
+Open **`http://localhost:8080`** for the dashboard - a live site status grid,
+a recent-events feed, and the incidents list. The Orchestrator runs a
 cycle automatically every `orchestrator_poll_interval_seconds` (default 60s),
 or trigger one immediately:
 
 ```bash
 curl -X POST http://localhost:8080/trigger
 ```
+
+Every incident's report is also written to `data/reports/<incident-id>.md`,
+alongside the copy kept in the Orchestrator's own incident store.
 
 ## Running with podman-compose
 

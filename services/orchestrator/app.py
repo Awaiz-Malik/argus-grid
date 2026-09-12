@@ -17,6 +17,8 @@ from fastapi.templating import Jinja2Templates
 
 from services.common.llm import configure_observability
 from services.common.settings import get_settings
+from services.common.site_registry import load_sites
+from services.orchestrator import live_state
 from services.orchestrator.graph import build_graph
 from services.orchestrator.store import IncidentStore
 
@@ -38,8 +40,16 @@ async def run_cycle() -> dict:
     logger.info("Running orchestrator cycle")
     final_state = await graph.ainvoke({})
     incident = final_state.get("incident")
+
+    reachable_sites = final_state.get("sites", [])
+    live_state.update(
+        configured_sites=load_sites(settings.sites_config_path),
+        reachable_sites=reachable_sites,
+        events=final_state.get("events", []),
+    )
+
     return {
-        "sites_checked": [s.id for s in final_state.get("sites", [])],
+        "sites_checked": [s.id for s in reachable_sites],
         "events_collected": len(final_state.get("events", [])),
         "incident_created": incident.id if incident else None,
     }
@@ -85,4 +95,14 @@ def health() -> dict:
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request) -> HTMLResponse:
     incidents = incident_store.recent(limit=20)
-    return templates.TemplateResponse(request, "dashboard.html", {"incidents": incidents})
+    state = live_state.get_state()
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {
+            "incidents": incidents,
+            "sites": state.sites,
+            "recent_events": state.recent_events,
+            "last_run_at": state.last_run_at,
+        },
+    )

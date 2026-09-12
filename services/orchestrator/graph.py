@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import TypedDict
 
@@ -145,8 +146,22 @@ def build_graph(settings: Settings, incident_store: IncidentStore, triage_url: s
             report=state["report"],
         )
         incident_store.add(incident)
+        _write_report_file(incident)
         logger.info("Recorded incident %s (severity=%s)", incident.id, incident.severity.level)
         return {"incident": incident}
+
+    def _write_report_file(incident: Incident) -> None:
+        if incident.report is None:
+            return
+        reports_dir = os.path.join(settings.data_dir, "reports")
+        os.makedirs(reports_dir, exist_ok=True)
+        path = os.path.join(reports_dir, f"{incident.id}.md")
+        with open(path, "w") as f:
+            f.write(f"# {incident.report.title}\n\n")
+            f.write(f"*Generated {incident.report.generated_at.isoformat()} - severity: ")
+            f.write(f"{incident.severity.level if incident.severity else 'unknown'}*\n\n")
+            f.write(incident.report.body_markdown)
+            f.write("\n")
 
     graph = StateGraph(OrchestratorState)
     graph.add_node("discover_sites", discover_sites_node)
