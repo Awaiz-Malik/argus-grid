@@ -1,38 +1,83 @@
 # Argus Grid
 
-A distributed visual inspection agent network. Instead of one vision-agent bot
-watching one camera feed, Argus Grid runs a local **Vision Agent** at every
-site, a central **Orchestrator** that reasons across sites for patterns a
-single-site bot structurally can't see, and specialist **Triage** and
-**Reporting** agents it delegates to over real agent-to-agent tasks — with
-every decision traced end-to-end in LangSmith.
+## What this is
 
-The demo vertical is construction-site PPE/safety compliance: each Vision
-Agent watches for missing hard hats and hi-vis vests. A single site having
-some violations is normal background noise; the Orchestrator's job is to
-notice when the *same* violation is showing up across *multiple* sites in
-the same window — the pattern a single-site bot can never see.
+A team of AI "agents" that watches construction sites for safety violations
+(missing hard hats and safety vests) — and, more importantly, notices when
+the *same* problem is happening across *multiple* sites at once, not just
+one camera flagging one worker.
+
+## The problem it solves
+
+- A camera watching one site can tell you "someone here isn't wearing a
+  hard hat right now." That's useful, but limited.
+- It can't tell you "this is happening at three sites this week" — because
+  it only ever sees its own site.
+- A single bigger AI watching everything at once doesn't reflect how real
+  safety operations actually work: local staff observe, a manager looks for
+  patterns, and specialists get looped in when something's serious.
+
+## How it works, in plain terms
+
+1. **Local watchers** — one AI agent per site, each watching its own video
+   feed for missing hard hats or vests.
+2. **A site manager** — a central agent that checks in with every site,
+   collects what they've seen, and asks: "is this one isolated incident, or
+   the same violation showing up everywhere?"
+3. **A safety officer** — when a real pattern is found, it's handed off to
+   a specialist agent whose only job is to judge how serious it is.
+4. **A report writer** — a third specialist agent then drafts a plain-English
+   incident report, the kind you'd actually hand to a client or auditor.
+5. **A dashboard** — shows which sites are online, recent activity, and the
+   full history of incident reports.
+
+## Why it's built this way
+
+Each of those four roles is a separate, independent AI agent that hands work
+to the next one — the same way a real organization has specialists instead
+of one person trying to do everything. The point of this project is to
+demonstrate that kind of coordination between AI agents working together,
+not just one large model doing all the thinking alone.
+
+## The demo scenario
+
+Construction-site PPE (hard hat / safety vest) compliance across three
+sites. One site having a few violations is normal noise; the interesting
+case is the same violation appearing across multiple sites in the same
+window — a pattern a single-site watcher could never notice on its own.
 
 ## Architecture
 
-```text
-                    ┌─────────────────────────────────────────┐
-                    │            Orchestrator Agent            │
-                    │  (LangGraph + FastAPI + LangSmith)        │
-                    │  discover_sites → collect_detections →    │
-                    │  analyze_cross_site_patterns →            │
-                    │  [delegate_triage → delegate_reporting]   │
-                    └───────┬───────────────────┬───────────────┘
-              MCP (pull)    │                   │  A2A tasks (delegate)
-        ┌───────────────────┼───────────┐       ├────────────────┐
-        │                   │           │       │                │
-  ┌─────▼─────┐      ┌──────▼────┐ ┌────▼────┐ ┌▼─────────┐ ┌────▼──────┐
-  │Vision Agent│      │Vision Agent│ │Vision A.│ │  Triage   │ │ Reporting │
-  │  Site A    │      │  Site B    │ │ Site C  │ │  Agent    │ │  Agent    │
-  │(video file)│      │(video file)│ │(webcam) │ │  (A2A)    │ │  (A2A)    │
-  │YOLOv8+CV2  │      │YOLOv8+CV2  │ │YOLOv8+CV2│ │severity   │ │drafts     │
-  │MCP+A2A card│      │MCP+A2A card│ │MCP+A2A  │ │classifier │ │incident   │
-  └───────────┘      └───────────┘ └─────────┘ └───────────┘ └───────────┘
+```mermaid
+flowchart TB
+    O["<b>Orchestrator Agent</b><br/>LangGraph + FastAPI + LangSmith<br/><br/>discover_sites → collect_detections →<br/>analyze_cross_site_patterns →<br/>delegate_triage → delegate_reporting"]
+
+    subgraph Vision[" "]
+        direction LR
+        A["<b>Vision Agent</b><br/>Site A<br/>video file<br/>YOLOv8 + OpenCV<br/>MCP + A2A card"]
+        B["<b>Vision Agent</b><br/>Site B<br/>video file<br/>YOLOv8 + OpenCV<br/>MCP + A2A card"]
+        C["<b>Vision Agent</b><br/>Site C<br/>webcam<br/>YOLOv8 + OpenCV<br/>MCP + A2A card"]
+    end
+
+    subgraph Specialists[" "]
+        direction LR
+        T["<b>Triage Agent</b><br/>A2A service<br/>severity classifier"]
+        R["<b>Reporting Agent</b><br/>A2A service<br/>drafts incident report"]
+    end
+
+    O -- "MCP (pull)" --> A
+    O -- "MCP (pull)" --> B
+    O -- "MCP (pull)" --> C
+    O -- "A2A task (delegate)" --> T
+    O -- "A2A task (delegate)" --> R
+
+    classDef orchestrator fill:#1f2937,stroke:#60a5fa,stroke-width:2px,color:#f9fafb
+    classDef vision fill:#111827,stroke:#34d399,stroke-width:1.5px,color:#f9fafb
+    classDef specialist fill:#111827,stroke:#f59e0b,stroke-width:1.5px,color:#f9fafb
+
+    class O orchestrator
+    class A,B,C vision
+    class T,R specialist
 ```
 
 Each Vision Agent exposes **two** interfaces:
