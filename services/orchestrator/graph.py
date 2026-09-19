@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 from typing import TypedDict
 
@@ -31,6 +32,7 @@ from services.orchestrator.store import IncidentStore
 logger = logging.getLogger(__name__)
 
 LOOKBACK = timedelta(hours=24)
+MAX_DELEGATED_EVENTS = 30
 
 
 class PatternAnalysis(BaseModel):
@@ -103,25 +105,32 @@ def build_graph(settings: Settings, incident_store: IncidentStore, triage_url: s
         analysis = state.get("analysis")
         return "delegate_triage" if analysis and analysis.incident_worthy else "end"
 
+    def _delegated_events_payload(state: OrchestratorState, site_ids: list[str]) -> dict:
+        events = [e for e in state.get("events", []) if e.site_id in site_ids]
+        # A flagged pattern can involve hundreds of events; delegated agents only
+        # need a representative sample to reason over, not every single one -
+        # sending them all bloats the prompt and can make the LLM call slow
+        # enough to trip the A2A client timeout.
+        sample = events[:MAX_DELEGATED_EVENTS]
+        return {"total_event_count": len(events), "events": [e.model_dump(mode="json") for e in sample]}
+
     async def delegate_triage_node(state: OrchestratorState) -> OrchestratorState:
         analysis = state["analysis"]
-        events = [e for e in state.get("events", []) if e.site_id in analysis.site_ids]
         payload = {
             "pattern_summary": analysis.summary,
             "site_ids": analysis.site_ids,
-            "events": [e.model_dump(mode="json") for e in events],
+            **_delegated_events_payload(state, analysis.site_ids),
         }
         result = await call_agent(triage_url, payload)
         return {"severity": SeverityResult.model_validate(result)}
 
     async def delegate_reporting_node(state: OrchestratorState) -> OrchestratorState:
         analysis = state["analysis"]
-        events = [e for e in state.get("events", []) if e.site_id in analysis.site_ids]
         payload = {
             "pattern_summary": analysis.summary,
             "site_ids": analysis.site_ids,
             "severity": state["severity"].model_dump(mode="json"),
-            "events": [e.model_dump(mode="json") for e in events],
+            **_delegated_events_payload(state, analysis.site_ids),
         }
         result = await call_agent(reporting_url, payload)
         return {"report": IncidentReport.model_validate(result)}
@@ -137,8 +146,22 @@ def build_graph(settings: Settings, incident_store: IncidentStore, triage_url: s
             report=state["report"],
         )
         incident_store.add(incident)
+        _write_report_file(incident)
         logger.info("Recorded incident %s (severity=%s)", incident.id, incident.severity.level)
         return {"incident": incident}
+
+    def _write_report_file(incident: Incident) -> None:
+        if incident.report is None:
+            return
+        reports_dir = os.path.join(settings.data_dir, "reports")
+        os.makedirs(reports_dir, exist_ok=True)
+        path = os.path.join(reports_dir, f"{incident.id}.md")
+        with open(path, "w") as f:
+            f.write(f"# {incident.report.title}\n\n")
+            f.write(f"*Generated {incident.report.generated_at.isoformat()} - severity: ")
+            f.write(f"{incident.severity.level if incident.severity else 'unknown'}*\n\n")
+            f.write(incident.report.body_markdown)
+            f.write("\n")
 
     graph = StateGraph(OrchestratorState)
     graph.add_node("discover_sites", discover_sites_node)

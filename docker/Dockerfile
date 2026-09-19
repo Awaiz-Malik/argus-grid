@@ -17,11 +17,19 @@ COPY pyproject.toml ./
 COPY services ./services
 COPY configs ./configs
 
-# CPU-only torch first: these containers don't have GPU passthrough wired up,
-# so pin the CPU wheel before ultralytics' own install would otherwise pull
-# the much larger CUDA build.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
+# CPU-only torch + torchvision first, both from the same CPU wheel index so
+# their native ops match (installing them separately/mismatched breaks
+# torchvision's custom ops, e.g. "operator torchvision::nms does not exist").
+# These containers don't have GPU passthrough wired up, so this also avoids
+# ultralytics pulling the much larger CUDA build.
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir -e .
+
+# ultralytics transitively pulls the GUI opencv-python build, which conflicts
+# with our pinned opencv-python-headless in the same cv2 install location -
+# same fix as the local venv (see README's Known Issue).
+RUN pip uninstall -y opencv-python opencv-python-headless \
+    && pip install --no-cache-dir opencv-python-headless
 
 # Bake in YOLO weights at build time so containers don't need network at first request.
 RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"

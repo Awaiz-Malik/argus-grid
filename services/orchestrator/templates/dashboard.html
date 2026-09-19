@@ -6,7 +6,19 @@
   <style>
     body { font-family: -apple-system, system-ui, sans-serif; margin: 2rem auto; max-width: 900px; background: #0b0d10; color: #e6e8eb; }
     h1 { font-size: 1.4rem; }
-    .sub { color: #9aa4af; margin-bottom: 2rem; }
+    h2 { font-size: 1rem; color: #c7ccd1; margin: 2rem 0 0.75rem; }
+    .sub { color: #9aa4af; margin-bottom: 1rem; }
+    .site-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
+    .site-card { border: 1px solid #2a2f36; border-radius: 8px; padding: 0.75rem 1rem; background: #14171b; }
+    .site-card-head { display: flex; justify-content: space-between; align-items: center; }
+    .dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; display: inline-block; }
+    .dot-up { background: #7ee0a0; }
+    .dot-down { background: #ff8a8a; }
+    .site-url { color: #9aa4af; font-size: 0.8rem; margin-top: 0.25rem; }
+    .events-feed { border: 1px solid #2a2f36; border-radius: 8px; background: #14171b; overflow: hidden; }
+    .event-row { display: flex; justify-content: space-between; padding: 0.5rem 1rem; font-size: 0.85rem; border-bottom: 1px solid #2a2f36; }
+    .event-row:last-child { border-bottom: none; }
+    .event-site { color: #9aa4af; }
     .incident { border: 1px solid #2a2f36; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; background: #14171b; }
     .incident-head { display: flex; justify-content: space-between; align-items: center; }
     .badge { padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
@@ -21,8 +33,42 @@
 </head>
 <body>
   <h1>Argus Grid</h1>
-  <p class="sub">Cross-site incidents the Orchestrator has escalated to Triage + Reporting.</p>
+  <p class="sub">
+    {% if last_run_at %}Last cycle: {{ last_run_at.strftime("%Y-%m-%d %H:%M:%S %Z") }}{% else %}No cycle has run yet.{% endif %}
+  </p>
 
+  <h2>Sites</h2>
+  {% if not sites %}
+    <p class="empty">No sites discovered yet.</p>
+  {% else %}
+    <div class="site-grid">
+      {% for site in sites %}
+        <div class="site-card">
+          <div class="site-card-head">
+            <strong>{{ site.name }}</strong>
+            <span class="dot {{ 'dot-up' if site.reachable else 'dot-down' }}" title="{{ 'reachable' if site.reachable else 'unreachable' }}"></span>
+          </div>
+          <div class="site-url">{{ site.id }} · {{ site.url }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <h2>Recent events</h2>
+  {% if not recent_events %}
+    <p class="empty">No events collected yet.</p>
+  {% else %}
+    <div class="events-feed">
+      {% for event in recent_events %}
+        <div class="event-row">
+          <span><span class="event-site">{{ event.site_id }}</span> — {{ event.violation_type }}</span>
+          <span>{{ "%.0f" | format(event.confidence * 100) }}% · {{ event.timestamp.strftime("%H:%M:%S") }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <h2>Incidents</h2>
   {% if not incidents %}
     <p class="empty">No incidents yet — nothing has crossed the cross-site pattern threshold.</p>
   {% endif %}
